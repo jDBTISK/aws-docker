@@ -1,0 +1,68 @@
+services:
+  sqs:
+    image: softwaremill/elasticmq:latest
+    container_name: sqs
+    ports:
+      - ${SQS_PORT}:9324
+      - ${SQS_CONSOLE_PORT}:9325
+    volumes:
+      - type: bind
+        source: ./docker/sqs/custom.conf
+        target: /opt/elasticmq.conf
+
+  dynamodb:
+    image: amazon/dynamodb-local:latest
+    container_name: dynamodb
+    ports:
+      - ${DYNAMODB_PORT}:8000
+    command: ["-jar", "DynamoDBLocal.jar", "-sharedDb", "-dbPath", "/data"]
+    volumes:
+      - type: bind
+        source: ./docker/dynamodb/data
+        target: /data
+
+  dynamodb-admin:
+    image: aaronshaf/dynamodb-admin:latest
+    container_name: dynamodb-admin
+    ports:
+      - ${DYNAMODB_ADMIN_PORT}:8001
+    environment:
+      DYNAMO_ENDPOINT: dynamodb:8000
+    depends_on:
+      - dynamodb
+
+  s3:
+    image: minio/minio:latest
+    container_name: s3
+    ports:
+      - ${S3_PORT}:9000
+      - ${S3_CONSOLE_PORT}:9001
+    environment:
+      MINIO_ROOT_USER: ${AWS_ACCESS_KEY_ID}
+      MINIO_ROOT_PASSWORD: ${AWS_SECRET_ACCESS_KEY}
+    command: ["server", "/data", "--console-address", ":9001"]
+    volumes:
+      - type: bind
+        source: ./docker/s3/data
+        target: /data
+
+  initialize:
+    image: amazon/aws-cli
+    container_name: awscli
+    environment:
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
+      AWS_REGION: ${AWS_REGION}
+      SQS_QUEUE_NAME: ${SQS_QUEUE_NAME}
+      DYNAMODB_TABLE_NAME: ${DYNAMODB_TABLE_NAME}
+      S3_BUCKET_NAME: ${S3_BUCKET_NAME}
+    command: ./init.sh
+    entrypoint: []
+    volumes:
+      - type: bind
+        source: ./docker/awscli
+        target: /aws
+    depends_on:
+      - sqs
+      - dynamodb
+      - s3

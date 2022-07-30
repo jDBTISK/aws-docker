@@ -1,0 +1,7 @@
+.env
+
+docker/dynamodb/data/*
+!docker/dynamodb/data/.gitkeep
+
+docker/s3/data/*
+!docker/s3/data/.gitkeep
